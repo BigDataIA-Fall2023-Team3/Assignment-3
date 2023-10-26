@@ -4,8 +4,8 @@ from passlib.context import CryptContext
 RDS_HOST = "assignment-3.cg4vo6ofeasg.us-east-1.rds.amazonaws.com"
 RDS_PORT = 5432
 RDS_DB_NAME = "a3"
-RDS_USER = "postgres"
-RDS_PASSWORD = "assignment"
+RDS_USER = {rds username}
+RDS_PASSWORD = {rds password}
 
 DATABASE_URL = f"dbname='{RDS_DB_NAME}' user='{RDS_USER}' host='{RDS_HOST}' port={RDS_PORT} password='{RDS_PASSWORD}'"
 # psql --host=assignment-3.cg4vo6ofeasg.us-east-1.rds.amazonaws.com --port=5432 --username=postgres --password --dbname=a3 
