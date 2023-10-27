@@ -1,0 +1,7 @@
+fastapi
+pydantic
+uvicorn
+psycopg2
+jwt
+passlib
+python-multipart
