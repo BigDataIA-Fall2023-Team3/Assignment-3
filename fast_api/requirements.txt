@@ -2,6 +2,6 @@ fastapi
 pydantic
 uvicorn
 psycopg2
-jwt
+pyjwt
 passlib
 python-multipart
