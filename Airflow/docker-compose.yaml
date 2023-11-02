@@ -71,15 +71,17 @@ x-airflow-common:
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
     # WARNING: Use _PIP_ADDITIONAL_REQUIREMENTS option ONLY for a quick checks
     # for other purpose (development, test and especially production usage) build/extend Airflow image.
-    _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:- PyPDF2}
+    _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:- PyPDF2 boto3}
     
     AIRFLOW__CORE__ENABLE_XCOM_PICKLING: 'true'
+    A_KEY: ${A_KEY}
+    SA_KEY: ${SA_KEY}
   volumes:
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
-    - /Users/keerthi/Desktop/Assignment-3/Airflow:/output_folder
+    - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/data
 
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
@@ -157,7 +159,7 @@ services:
       - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
       - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
       - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
-      - /Users/keerthi/Desktop/Assignment-3/Airflow:/output_folder # Adjust the path according to your needs
+      - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/data
     healthcheck:
       # yamllint disable rule:line-length
       test:
