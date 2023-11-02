@@ -28,6 +28,14 @@ def extract_pdf_content(pdf_url, output_csv_file):
 def extract_text_with_pypdf2(pdf_content):
     pdf_reader = PyPDF2.PdfReader(io.BytesIO(pdf_content))
     text = ""
+
+      # Access the metadata
+    meta_data = pdf_reader.metadata
+
+    # Print metadata information
+    for key, value in meta_data.items():
+        print(f"{key}: {value}")
+
    
     for page_num in range(len(pdf_reader.pages)):
         page = pdf_reader.pages[page_num]
@@ -132,7 +140,4 @@ download_file = PythonOperator(
 
 download_file
 
-
-# # Define task dependencies
-# pdf_processing_task
 
