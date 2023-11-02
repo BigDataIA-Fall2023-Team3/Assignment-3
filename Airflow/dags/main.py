@@ -10,7 +10,7 @@ import requests
 import csv
 import boto3
 
-s3_bucket = 'csv007'
+s3_bucket = 'csv07'
 s3_object_key = 'extract.csv'
 
 
@@ -71,7 +71,7 @@ def upload_csv_to_s3(csv_file_path, s3_object_key):
     s3_client = boto3.client('s3')
 
     # Upload the CSV file, replacing it if it already exists.
-    s3_client.upload_file(csv_file_path, 'csv007', s3_object_key)
+    s3_client.upload_file(csv_file_path, 'csv07', s3_object_key)
 
 
 def download_csv(file):
