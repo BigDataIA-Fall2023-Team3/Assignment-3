@@ -15,6 +15,7 @@ import tiktoken
 import nltk
 import numpy as np
 nltk.download('punkt')
+import csv
 
 
 
@@ -114,12 +115,21 @@ def get_ids_from_query(index,input_vector):
 
 
 def get_all_ids_from_index(index, num_dimensions, namespace=""):
-  num_vectors = index.describe_index_stats()["namespaces"]['']['vector_count']
-  all_ids = set()
-  while len(all_ids) < num_vectors:
-    input_vector = np.random.rand(num_dimensions).tolist()
-    ids = get_ids_from_query(index,input_vector)
-    all_ids.update(ids)
+  
+    input_vector = np.random.rand(1536).tolist()
+    results = index.query(vector=input_vector, top_k=100,include_values=False)
+    all_ids = []
+    for i in results['matches']:
+        all_ids.append(str(i['id']))
+  
+#   num_vectors = index.describe_index_stats()["namespaces"][""]["vector_count"]
+# #   ["namespaces"]['']['vector_count']
+#   print("Num Vectors:",num_vectors)
+#   all_ids = set()
+#   while len(all_ids) < num_vectors:
+#     input_vector = np.random.rand(num_dimensions).tolist()
+#     ids = get_ids_from_query(index,input_vector)
+#     all_ids.update(ids)
     return all_ids
 
 
@@ -162,6 +172,9 @@ def upload_csv_to_s3(name):
     combined_df.to_csv(file_path, index=False)
      # Upload the CSV file, replacing it if it already exists.
     s3_client.upload_file(st.secrets['FILENAME'], 'csv07', "filenames.csv")
+
+
+
 
 
 #########################################################################################
