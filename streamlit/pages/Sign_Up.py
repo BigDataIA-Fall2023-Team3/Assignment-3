@@ -1,6 +1,6 @@
 import streamlit as st
 import requests
-import sys
+
 
 signup_successful = False  # Flag to track if sign-up was successful
 
