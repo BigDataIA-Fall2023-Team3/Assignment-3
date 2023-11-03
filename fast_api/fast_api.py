@@ -10,6 +10,7 @@ import logging
 import boto3
 import uuid
 import os
+import re
 
 # Initialize the logging configuration
 logging.basicConfig(
