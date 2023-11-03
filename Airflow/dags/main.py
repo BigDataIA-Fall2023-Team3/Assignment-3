@@ -9,46 +9,99 @@ import PyPDF2
 import requests
 import csv
 import boto3
+import pandas as pd
+from textblob import TextBlob
+import nltk
+nltk.download('punkt')
+import openai
+import tiktoken
+import time
+
 
 s3_bucket = 'csv07'
 s3_object_key = 'extract.csv'
-
+openai.api_key = os.getenv('OPENAI_API')
+EMBEDDING_MODEL = "text-embedding-ada-002"
+GPT_MODEL = "gpt-3.5-turbo"
+pdf_links_list = ["https://www.sec.gov/files/form1-z.pdf",
+                  "https://www.sec.gov/files/form1.pdf",
+                  "https://www.sec.gov/files/form1-a.pdf",
+                  "https://www.sec.gov/files/form1-e.pdf",
+                  "https://www.sec.gov/files/form10.pdf"
+                  ]
 
 # Function to extract content from a PDF link
-def extract_pdf_content(pdf_url, output_csv_file):
-
-    pdf_response = requests.get(pdf_url)
-    pdf_content = pdf_response.content
-    pdf_text = extract_text_with_pypdf2(pdf_content)
-    save_to_csv(pdf_text, output_csv_file)
+def extract_pdf_content(links, output_csv_file):
+    column_names = ["Meta Data", "Text", "Embeddings"]
+    df = pd.DataFrame(columns=column_names)
+    for i in links:
+        pdf_response = requests.get(i)
+        pdf_content = pdf_response.content
+        meta_data, pdf_text = extract_text_with_pypdf2(pdf_content)
+        sentences_list = extract_sentences(pdf_text.strip())
+        # print(sentences_list[0])
+        chunk_list = create_chunk_list(sentences_list)
+        embeddings_list = gen_embed(chunk_list)
+        df_temp = pd.DataFrame({'Meta Data': meta_data,'Text': chunk_list, 'Embeddings': embeddings_list})
+        df = pd.concat([df, df_temp], ignore_index=True)
+    df.to_csv(output_csv_file, index=True)
     upload_csv_to_s3(output_csv_file, 'extract.csv')
+
+
+def extract_sentences(text):
+    blob = TextBlob(text)
+    sentence_list = []
+    # Iterate through the sentences and append them to the list
+    for sentence in blob.sentences:
+        sentence_list.append(sentence.raw)
+    return sentence_list
+
+
+def create_chunk_list(sentence_list):
+    l = len(sentence_list)
+    chunk_list = []
+    chunk = ''
+    encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
+    for i in range(l):
+        chunk+=sentence_list[i]
+        if len(encoding.encode(chunk))<3000:
+            if i==l-1:
+                chunk_list.append(chunk)
+            continue
+        else:
+            chunk_list.append(chunk)
+            chunk = ''
+    return chunk_list
+
+
+
+def gen_embed(chunk_list):
+    embed_list = []
+    for i in chunk_list:
+        text_embedding_response = openai.Embedding.create(
+            model=EMBEDDING_MODEL,
+            input=i,
+        )
+        text_embedding = text_embedding_response["data"][0]["embedding"]
+        embed_list.append(text_embedding)
+        time.sleep(20)
+    return embed_list
 
 
 
 def extract_text_with_pypdf2(pdf_content):
     pdf_reader = PyPDF2.PdfReader(io.BytesIO(pdf_content))
     text = ""
-
-      # Access the metadata
+    # Access the metadata
     meta_data = pdf_reader.metadata
-
+    meta_data = list(meta_data.values())[0]
     # Print metadata information
-    for key, value in meta_data.items():
-        print(f"{key}: {value}")
-
-   
+    # for key, value in meta_data.items():
+    #     print(f"{key}: {value}")
     for page_num in range(len(pdf_reader.pages)):
         page = pdf_reader.pages[page_num]
         text += page.extract_text()
-    return text
-
-
-
-def save_to_csv(pdf_text, output_csv_file):
-    print("the path is "+output_csv_file)
-    with open(output_csv_file, "w") as csv_file:
-        print("Testing if in")
-        csv_file.write(pdf_text)
+    return [meta_data,text]
 
 
 
@@ -112,7 +165,7 @@ dag = DAG(
 pdf_processing_task = PythonOperator(
     task_id="pdf_extract",
     python_callable=extract_pdf_content,
-    op_args=["https://www.sec.gov/files/form1-a.pdf", "output.csv"],
+    op_args=[pdf_links_list, "output.csv"],
     dag=dag,
 )
 
