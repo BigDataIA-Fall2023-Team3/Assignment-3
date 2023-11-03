@@ -14,6 +14,7 @@ from textblob import TextBlob
 import nltk
 nltk.download('punkt')
 import openai
+from openai import OpenAI, AsyncOpenAI
 import tiktoken
 import time
 import pinecone
@@ -35,11 +36,7 @@ s3_object_key = 'extract.csv'
 openai.api_key = os.getenv('OPENAI_API')
 EMBEDDING_MODEL = "text-embedding-ada-002"
 GPT_MODEL = "gpt-3.5-turbo"
-pdf_links_list = ["https://www.sec.gov/files/form1-z.pdf",
-                  "https://www.sec.gov/files/form1.pdf",
-                  "https://www.sec.gov/files/form1-a.pdf",
-                  "https://www.sec.gov/files/form1-e.pdf",
-                  "https://www.sec.gov/files/form10.pdf"
+pdf_links_list = ["https://www.africau.edu/images/default/sample.pdf"
                   ]
 
 # Function to extract content from a PDF link
@@ -89,13 +86,16 @@ def create_chunk_list(sentence_list):
 
 
 def gen_embed(chunk_list):
+    client = OpenAI(api_key=openai.api_key)
     embed_list = []
     for i in chunk_list:
-        text_embedding_response = openai.Embedding.create(
+        text_embedding_response = client.embeddings.create(
+             input=i,
             model=EMBEDDING_MODEL,
-            input=i,
         )
-        text_embedding = text_embedding_response["data"][0]["embedding"]
+        print("The text embedding response is:",text_embedding_response)
+        print("The text embedding response is:",text_embedding_response.data[0].embedding)
+        text_embedding = text_embedding_response.data[0].embedding
         embed_list.append(text_embedding)
         time.sleep(20)
     return embed_list
@@ -193,26 +193,31 @@ def add_to_pinecone(df):
 
 
 def search_pinecone_and_return_text(query):
-    xq = openai.Embedding.create(input=query, engine="text-embedding-ada-002")['data'][0]['embedding']
+    client = OpenAI(api_key=openai.api_key)
+    xq = client.embeddings.create(input=query, model="text-embedding-ada-002").data[0].embedding
     res = index.query([xq], top_k=1, include_metadata=True)
+    print("search_pinecone ",res['matches'][0]['metadata']['Text'])
     
     results = []
     for match in res['matches']:
         metadata = match.get('metadata', {})  # Use .get() to handle missing 'metadata'
-        text = metadata.get('text', '')  # Use .get() to handle missing 'text'
+        text = metadata.get('Text', '')  # Use .get() to handle missing 'text'
         results.append(text)
-    
+    print(results)
     return results
 
 
 
 
-def answer_question(results, query):
+async def answer_question(results, query):
     # Build the prompt with the search results and the user's question
     results = results[0]
     prompt = f"Context: {results}\nQuestion: {query}\nAnswer:"
 
-    response = openai.ChatCompletion.create(
+
+    client = AsyncOpenAI()
+
+    response = await client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
@@ -223,9 +228,11 @@ def answer_question(results, query):
     response_text = response['choices'][0]['message']['content']
     return response_text
 
+
 def qa(**kwargs):
     q = kwargs["params"]["query"]
     res = search_pinecone_and_return_text(q)
+    print(res)
     context = res[0][1]
     a = answer_question(context,q)
     print(a)

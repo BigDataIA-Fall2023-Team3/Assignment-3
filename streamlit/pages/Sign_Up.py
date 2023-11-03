@@ -22,6 +22,7 @@ with st.form(key='sign_up_form'):
             response = requests.post(api_url, json=payload)
             if response.status_code == 200:
                 st.success('User created successfully!')
+                st.balloons()
             else:
                 st.error(f"Error: {response.json().get('detail', 'Unknown error')}")
         except requests.exceptions.RequestException as e:

@@ -186,3 +186,4 @@ if update_button:
         add_to_pinecone(df)
         upload_csv_to_s3(filename)
         st.success("Updated") 
+        st.balloons()
