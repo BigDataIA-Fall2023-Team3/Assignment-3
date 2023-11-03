@@ -32,8 +32,8 @@ This project, "Automating Metadata Extraction and Document Retrieval System," is
 
 ### Architecture
 
+![part - 1](https://github.com/BigDataIA-Fall2023-Team3/Assignment-3/assets/114708712/3e6327d3-1fd1-42da-ae35-508f40ac2cca)
 
-![part-1](https://github.com/BigDataIA-Fall2023-Team3/Assignment-3/assets/114708712/c6748bd3-dd2f-4549-9379-b8ac166efd35)
 
 
 ### Navigation
