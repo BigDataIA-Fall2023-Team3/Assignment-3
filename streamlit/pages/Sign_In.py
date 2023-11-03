@@ -42,8 +42,6 @@ def update_user_profile(token):
         else:
             st.error("Failed to update profile.")
 
-# Streamlit app
-st.title("User Authentication and Profile Management")
 
 # Initialize user_data as an empty dictionary
 user_data = st.session_state.get("user_data", {})
@@ -64,6 +62,7 @@ if sign_in_button:
         }
         st.session_state.user_data = user_data
         st.success("Sign in successful!")
+        st.title("Welcome to SEC Data Vector Search Platform!")
     else:
         st.sidebar.error("Sign in failed. Invalid credentials.")
 
