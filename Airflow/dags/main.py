@@ -21,7 +21,7 @@ import ast
 import pkg_resources
 
 pinecone.init(api_key=os.getenv('PINECONE'),environment='gcp-starter')
-index = pinecone.Index('bigdata')
+index = pinecone.Index('big-data')
 s3_bucket = 'csv07'
 s3_object_key = 'extract.csv'
 openai.api_key = os.getenv('OPENAI_API')
@@ -178,7 +178,55 @@ def add_to_pinecone(df):
         meta = [{'text': text_batch} for text_batch in zip(metalist, text_list)]
         to_upsert = zip(id_list, embeds, meta)  
         index.upsert(vectors=list(to_upsert))
-    pinecone.deinit()
+    #pinecone.deinit()
+
+
+
+def search_pinecone_and_return_text(query):
+    xq = openai.Embedding.create(input=query, engine="text-embedding-ada-002")['data'][0]['embedding']
+    res = index.query([xq], top_k=5, include_metadata=True)
+    
+    results = []
+    for match in res['matches']:
+        metadata = match.get('metadata', {})  # Use .get() to handle missing 'metadata'
+        text = metadata.get('text', '')  # Use .get() to handle missing 'text'
+        results.append(text)
+    
+    return results
+
+
+
+def construct_prompt(query):
+    matches = search_pinecone_and_return_text(query)
+
+  
+    flattened_matches = [item for sublist in matches for item in sublist]
+
+    prompt = """Answer the question as truthfully as possible using the context below, and if the answer is no within the context, say 'I don't know.'"""
+    prompt += "\n\n"
+    prompt += "Context: " + "\n".join(flattened_matches)
+    prompt += "\n\n"
+    prompt += "Question: " + query
+    prompt += "\n"
+    prompt += "Answer: "
+    return prompt
+
+
+
+def answer_question(results, query):
+    # Build the prompt with the search results and the user's question
+    prompt = f"Context: {results}\nQuestion: {query}\nAnswer:"
+
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+
+    response_text = response['choices'][0]['message']['content']
+    return response_text
 
 
 
@@ -205,24 +253,107 @@ pdf_processing_task = PythonOperator(
 pdf_processing_task
 
 
-dag2 = DAG(
-    dag_id="download",
+# dag2 = DAG(
+#     dag_id="download",
+#     schedule_interval=None,   # Use schedule_interval instead of schedule
+#     start_date=days_ago(0),
+#     catchup=False,
+#     dagrun_timeout=timedelta(minutes=60),
+#     tags=["database"],
+#     # params=user_input,
+# )
+
+
+# pinecone = PythonOperator(
+#     task_id="database",
+#     python_callable=update_db,
+#     op_args=["output.csv"],
+#     dag=dag2,
+# )
+
+
+# pinecone_search = PythonOperator(
+#     task_id="search",
+#     python_callable=search_pinecone_and_return_text,
+#     op_args=["What is the Eligibility Requirements for Use of Form 1-A only?"],
+#     provide_context=True,
+#     dag=dag2,
+# )
+
+# prompt = PythonOperator(
+#     task_id="promt",
+#     python_callable=construct_prompt,
+#     op_args=["What is the Eligibility Requirements for Use of Form 1-A only?"],
+#     provide_context=True,
+#     dag=dag2,
+# )
+
+# question_answer=PythonOperator(
+#     task_id="qa",
+#     python_callable=answer_question,
+#     op_args=[results,"What is the Eligibility Requirements for Use of Form 1-A only?"],
+#     provide_context=True,
+#     dag=dag2,
+
+# )
+
+
+
+
+
+
+# Define your functions here
+
+dag = DAG(
+    dag_id="pdf_processing_dag",
     schedule_interval=None,   # Use schedule_interval instead of schedule
     start_date=days_ago(0),
     catchup=False,
     dagrun_timeout=timedelta(minutes=60),
-    tags=["database"],
+    tags=["pdf_processing"],
     # params=user_input,
 )
 
-
-pinecone = PythonOperator(
-    task_id="database",
-    python_callable=update_db,
-    op_args=["output.csv"],
-    dag=dag2,
+pdf_processing_task = PythonOperator(
+    task_id="pdf_extract",
+    python_callable=extract_pdf_content,
+    op_args=[pdf_links_list, "output.csv"],
+    dag=dag,
 )
 
-pinecone
+pinecone_task = PythonOperator(
+    task_id="update_pinecone",
+    python_callable=update_db,
+    op_args=["output.csv"],
+    dag=dag,
+)
 
+search_pinecone_task = PythonOperator(
+    task_id="search_pinecone",
+    python_callable=search_pinecone_and_return_text,
+    op_args=["What is the Eligibility Requirements for Use of Form 1-A only?"],
+    provide_context=True,
+    dag=dag,
+)
 
+construct_prompt_task = PythonOperator(
+    task_id="construct_prompt",
+    python_callable=construct_prompt,
+    op_args=["What is the Eligibility Requirements for Use of Form 1-A only?"],
+    provide_context=True,
+    dag=dag,
+)
+
+question_answer_task = PythonOperator(
+    task_id="qa",
+    python_callable=answer_question,
+    op_args=[search_pinecone_task, "What is the Eligibility Requirements for Use of Form 1-A only?"],
+    provide_context=True,
+    dag=dag,
+)
+
+# Set up task dependencies
+pdf_processing_task >> pinecone_task
+pinecone_task >> search_pinecone_task
+search_pinecone_task >> construct_prompt_task
+construct_prompt_task >> question_answer_task
