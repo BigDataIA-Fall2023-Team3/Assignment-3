@@ -13,7 +13,7 @@ import re
 import os
 
 
-pinecone.init(api_key=os.environ["PINECONE_API_KEY"], environment='gcp-starter')
+pinecone.init(api_key=os.environ['PINECONE_API_KEY'], environment='gcp-starter')
 index = pinecone.Index('bigdata')
 
 class Token(BaseModel):
@@ -49,13 +49,13 @@ class OpenAIModel(BaseModel):
     api_key: str
 
 def construct_prompt(context,query):
-    prompt = """Use the below content of Eligibility Requirements to answer the subsequent question. If the answer cannot be found in the articles, write "I could not find an answer."""
-    prompt += "\n\n"
-    prompt += "Context: " + context
+    prompt = """Use the below content only to answer the question. If no content is found say No answer\n\n"""
+    prompt += "Content: " + context
     prompt += "\n\n"
     prompt += "Question: " + query
     prompt += "\n"
     prompt += "Answer: "
+   
     return prompt
 
 def get_user(username: str):
@@ -74,7 +74,6 @@ def get_user(username: str):
                 return UserInDB(**user_dict)
         except psycopg2.Error as e:
             print("Error fetching user.")
-            print(e)
         finally:
             cur.close()
             conn.close()
@@ -128,7 +127,7 @@ async def register_user(user: User):
 @app.post("/token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     stored_password = db.get_password_hash(form_data.password)  # Get hashed password from database
-    print(f"Stored Password: {stored_password}")
+    
     
     if db.check_user(form_data.username, form_data.password):
         access_token = create_access_token(data={"sub": form_data.username}, expires_delta=None)
@@ -144,50 +143,37 @@ async def read_users_details(current_user: UserInDB = Depends(get_current_user))
     return current_user
 
 
-@app.post("/search/")
-async def search(query_model: Query, openai_model: OpenAIModel, current_user: UserInDB = Security(get_current_user)):
-    
-    openai.api_key = openai_model.api_key
-    
-    # Get the query embedding
-    xq = openai.Embedding.create(input=query_model.query, engine="text-embedding-ada-002")['data'][0]['embedding']
-    # st.write(xq)
-    res = index.query(xq, top_k=2, include_metadata=True)
-    results = []
-    for match in res['matches']:
-        metadata = match.get('metadata', {})  # Use .get() to handle missing 'metadata'
-        text = metadata.get('text', '')  # Use .get() to handle missing 'text'
-        results.append(text)
-    
-    return results
 
 @app.post("/answer/")
 async def answer_question(query_model: QueryModel, openai_model: OpenAIModel, current_user: UserInDB = Security(get_current_user)):
     openai.api_key =openai_model.api_key
-    # Perform a filtered search if a filename is provided
-    if query_model.filename and query_model.filename.lower() != 'all':
+    if query_model.filename.lower() == 'all':
         # Create an embedding of the query
         xq = openai.Embedding.create(input=query_model.query, engine="text-embedding-ada-002")['data'][0]['embedding']
-        # Filter the search by the given filename
         res = index.query(
             vector=xq,
-            filter={"Filename": {"$eq": query_model.filename}},
-            top_k=2,
+            top_k=1,
             include_metadata=True
         )
     else:
-        # If 'All' or no filename is provided, perform a regular search
+        
         xq = openai.Embedding.create(input=query_model.query, engine="text-embedding-ada-002")['data'][0]['embedding']
-        res = index.query(xq, top_k=2, include_metadata=True)
+        res = index.query(
+            vector=xq,
+            top_k=1,
+            include_metadata=True,
+            filter={"Filename": {"$eq": query_model.filename}}
+        )
 
     # Extract the text from search results
-    results = [match.get('metadata', {}).get('text', '') for match in res['matches']]
-    
-    # Use the first search result as context for generating the answer
-    context = results[0] if results else ""
+    if len(res['matches']) == 0:
+        results = ''
+    else:
+        results = res['matches'][0]['metadata']['Text']
 
     # Build the prompt with the search results and the user's question
-    prompt = construct_prompt(context, query_model.query)
+    prompt = construct_prompt(results, query_model.query)
+    
     
     # Generate the answer with OpenAI API using the prompt
     response = openai.ChatCompletion.create(
