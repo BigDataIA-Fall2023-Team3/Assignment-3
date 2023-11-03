@@ -36,7 +36,12 @@ s3_object_key = 'extract.csv'
 openai.api_key = os.getenv('OPENAI_API')
 EMBEDDING_MODEL = "text-embedding-ada-002"
 GPT_MODEL = "gpt-3.5-turbo"
-pdf_links_list = ["https://www.africau.edu/images/default/sample.pdf"
+pdf_links_list = [
+    "https://www.sec.gov/files/form1-z.pdf",
+                  "https://www.sec.gov/files/form1.pdf",
+                  "https://www.sec.gov/files/form1-a.pdf",
+                  "https://www.sec.gov/files/form1-e.pdf",
+                  "https://www.sec.gov/files/form10.pdf"
                   ]
 
 # Function to extract content from a PDF link
@@ -249,12 +254,6 @@ def delete_entries(**kwargs):
 
 ##########################################################################################
 
-pdf_links_param = Param(
-    default=["https://www.example.com/pdf1.pdf", "https://www.example.com/pdf2.pdf"],
-    type="string",
-    description="List of PDF links to process",
-)
-
 
 dag = DAG(
     dag_id="Pipeline-1",
@@ -262,16 +261,14 @@ dag = DAG(
     start_date=days_ago(0),
     catchup=False,
     dagrun_timeout=timedelta(minutes=60),
-    tags=["csv_file"],
+    tags=["pdf_processing"],
     # params=user_input,
 )
-
-
 
 pdf_processing_task = PythonOperator(
     task_id="pdf_extract",
     python_callable=extract_pdf_content,
-    op_args=[pdf_links_param, "extract.csv"],
+    op_args=[pdf_links_list, "output.csv"],
     dag=dag,
 )
 
