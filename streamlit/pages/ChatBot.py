@@ -58,7 +58,7 @@ def update_user_logs(username, logs):
 
 #########################################################################################
 API_ENDPOINT = st.secrets['FASTAPI_ENDPOINT']
-logging.basicConfig(filename=log_file_path, level=logging.INFO)
+logging.basicConfig(filename='info.log', level=logging.INFO)
 #########################################################################################
 
 #Function to get options list
