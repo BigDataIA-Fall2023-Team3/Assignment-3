@@ -58,9 +58,6 @@ def update_user_logs(username, logs):
 
 #########################################################################################
 API_ENDPOINT = st.secrets['FASTAPI_ENDPOINT']
-log_file_path = '/Users/sumanayanakonda/Desktop/Assignment-3/Streamlit/info.log'
-if not os.path.exists(log_file_path):
-    open(log_file_path, 'w').close()
 logging.basicConfig(filename=log_file_path, level=logging.INFO)
 #########################################################################################
 
