@@ -169,6 +169,9 @@ async def read_users_details(current_user: UserInDB = Depends(get_current_user))
 async def update_user_info(user_update: UserUpdate, current_user: User = Depends(get_current_user)):
     # You can update user information here based on the data in user_update
     if user_update.email is not None:
+        if db.email_exists(user_update.email):
+            raise HTTPException(status_code=400, detail="Email already exists")
+        
         # Update the user's email
         db.update_user_email(current_user.username, user_update.email)
         logger.info(f"User '{current_user.username}' updated their email.")

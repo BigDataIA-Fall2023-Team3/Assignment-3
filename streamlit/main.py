@@ -1,5 +1,4 @@
 import streamlit as st
-import streamlit.pages.database as db
 
 
 st.title("Welcome to SEC Data Vector Search Platform!")

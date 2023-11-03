@@ -132,6 +132,23 @@ def update_user_password(username, new_password):
             cur.close()
             conn.close()
 
+def email_exists(email):
+    conn = get_connection()
+    if conn:
+        cur = conn.cursor()
+        try:
+            cur.execute("SELECT email FROM users WHERE email = %s;", (email,))
+            result = cur.fetchone()
+            return bool(result)
+        except psycopg2.Error as e:
+            print("Error checking if email exists.")
+            print(e)
+            conn.rollback()
+        finally:
+            cur.close()
+            conn.close()
+    return False
+
 
 # Call setup_database to ensure tables are created when script runs
 setup_database()
