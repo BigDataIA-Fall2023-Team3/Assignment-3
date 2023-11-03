@@ -13,7 +13,7 @@ import PyPDF2
 from textblob import TextBlob
 import tiktoken
 import nltk
-
+import numpy as np
 nltk.download('punkt')
 
 
@@ -186,4 +186,35 @@ if update_button:
         add_to_pinecone(df)
         upload_csv_to_s3(filename)
         st.success("Updated") 
+        st.balloons()
+
+#########################################################################################
+
+def options_list():
+    # Read the file names from a CSV file
+    filename_df = pd.read_csv(st.secrets['FILENAME'], header=None)  # No header specified
+    # Extract the options as a list
+    options = filename_df[0].tolist()[1:] 
+    options =  [i.strip() for i in options]
+    return options
+
+st.title("Delete a file from the Big Data Index")
+# Create a textbox for user input
+options = options_list()
+file = st.selectbox("Select a file name:", options)
+# Create an update button
+delete_button = st.button("Delete file")
+
+# Check if the update button is clicked
+if delete_button:
+    if not file:
+        st.warning("Please select a file name")
+    else:
+        filename_to_delete = file
+        input_vector = np.random.rand(1536).tolist()
+        results = index.query(vector=input_vector, top_k=10000,include_values=False, filter={"Filename": filename_to_delete})
+        all_ids = [match['id'] for match in results['matches']]
+        delete_response = index.delete(ids=[all_ids[0]], namespace='')
+        print(delete_response)
+        st.success("Deleted!") 
         st.balloons()

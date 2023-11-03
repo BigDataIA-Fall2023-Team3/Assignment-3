@@ -187,7 +187,6 @@ def add_to_pinecone(df):
         # meta = [{'text': text_batch} for text_batch in zip(metalist, text_list)]
         to_upsert = zip(id_list, embeds, m_list) 
         index.upsert(vectors=list(to_upsert))
-        print("after ipsert")
     #pinecone.deinit()
 
 
@@ -236,13 +235,29 @@ def qa(**kwargs):
     context = res[0][1]
     a = answer_question(context,q)
     print(a)
-    
+ ###################
+import numpy as np
+def delete_entries(**kwargs):
+    filename_to_delete = kwargs["params"]["filename"]
+    input_vector = np.random.rand(1536).tolist()
+    results = index.query(vector=input_vector, top_k=10000,include_values=False, filter={"Filename": filename_to_delete})
+    all_ids = [match['id'] for match in results['matches']]
+    print(all_ids)
+    delete_response = index.delete(ids=[all_ids[0]], namespace='')
+    print(delete_response)
 
 
-#############################################____________________________________#############################################
+##########################################################################################
+
+pdf_links_param = Param(
+    default=["https://www.example.com/pdf1.pdf", "https://www.example.com/pdf2.pdf"],
+    type="string",
+    description="List of PDF links to process",
+)
+
 
 dag = DAG(
-    dag_id="csv_generation",
+    dag_id="Pipeline-1",
     schedule_interval=None,   # Use schedule_interval instead of schedule
     start_date=days_ago(0),
     catchup=False,
@@ -256,7 +271,7 @@ dag = DAG(
 pdf_processing_task = PythonOperator(
     task_id="pdf_extract",
     python_callable=extract_pdf_content,
-    op_args=[pdf_links_list, "extract.csv"],
+    op_args=[pdf_links_param, "extract.csv"],
     dag=dag,
 )
 
@@ -265,7 +280,7 @@ pdf_processing_task
 
 
 dag2 = DAG(
-    dag_id="download",
+    dag_id="Pipeline-2",
     schedule_interval=None,   # Use schedule_interval instead of schedule
     start_date=days_ago(0),
     catchup=False,
@@ -284,11 +299,11 @@ pinecone = PythonOperator(
 pinecone
 
 user = {
-    "query" : Param(default = "Summary of form 1-a", type='string', minLength=5, maxLength=25, )
+    "query" : Param(default = "Summary of sample pdf", type='string', minLength=5, maxLength=25, )
 }
 
 dag3 = DAG(
-    dag_id="querytest",
+    dag_id="Question_Answering",
     schedule_interval=None,  # Use schedule_interval instead of schedule
     start_date=days_ago(0),
     catchup=False,
@@ -304,7 +319,27 @@ answer = PythonOperator(
 )
 answer
 
-user_link = {
-    "link" : Param(type='string', minLength=5, maxLength=100, )
+
+
+
+filename_to_delete = {
+    "filename" : Param(default = "sample.pdf", type='string', minLength=5, maxLength=25, )
 }
 
+dag4 = DAG(
+    dag_id="Delete_file",
+    schedule_interval=None,
+    start_date=days_ago(0),
+    catchup=False,
+    dagrun_timeout=timedelta(minutes=60),
+    tags=["delete"],
+    params = filename_to_delete,
+)
+
+
+delete_task = PythonOperator(
+    task_id="delete_entries",
+    python_callable=delete_entries,
+    provide_context=True,  # Include this to pass the context to the callable function
+    dag=dag4,
+)
