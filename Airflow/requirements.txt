@@ -7,3 +7,4 @@ typing_extensions==4.8.0
 textblob
 openai
 tiktoken
+pinecone-client

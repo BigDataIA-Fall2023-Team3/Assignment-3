@@ -16,6 +16,8 @@ nltk.download('punkt')
 import openai
 import tiktoken
 import time
+import pinecone
+import ast
 
 
 s3_bucket = 'csv07'
@@ -127,7 +129,7 @@ def upload_csv_to_s3(csv_file_path, s3_object_key):
     s3_client.upload_file(csv_file_path, 'csv07', s3_object_key)
 
 
-def download_csv(file):
+def update_db(file):
     a_key = os.getenv('A_KEY')
     sa_key = os.getenv('SA_KEY')
 
@@ -141,12 +143,48 @@ def download_csv(file):
     local_csv_file_path = "./extract.csv"
     s3_client.download_file(s3_bucket, s3_object_key, local_csv_file_path)
 
-    # Print the CSV content
-    with open(local_csv_file_path, 'r', newline='') as file:
-        csv_reader = csv.reader(file)
-        for row in csv_reader:
-            print(row)
+    df = get_df(local_csv_file_path)
+    add_to_pinecone(df)
+
+
+def get_df(path):
+    df = pd.read_csv(path)
+    df['Embeddings'] = df['Embeddings'].apply(ast.literal_eval)
+    return df.copy()
     
+
+def add_to_pinecone(df):
+    # Initialize the Pinecone client
+    print("in add to pinecone_______________________-")
+    print(os.getenv('PINECONE'))
+    print(type(os.getenv('PINECONE')))
+    pinecone.init(
+        api_key=os.getenv('PINECONE'),
+        environment='gcp-starter'
+    )
+    
+    index = pinecone.Index('bigdata')
+    
+    
+    df = df.rename(columns={df.columns[0]: 'Index'})
+    df['Index'] = df['Index'].astype(str)
+
+    # Setting batch size as 32
+    batch_size = 32
+    for i in range(0, len(df), batch_size):
+        batch_df = df[i:i + batch_size]
+
+        id_list = batch_df['Index'].tolist()
+        embeds = batch_df['Embeddings'].tolist()
+        text_list = batch_df['Text'].tolist()
+        metalist = batch_df['Meta Data'].tolist()
+        meta = [{'text': text_batch} for text_batch in zip(metalist, text_list)]
+        to_upsert = zip(id_list, embeds, meta)
+        
+        index.upsert(vectors=list(to_upsert))
+
+    
+    # pinecone.deinit()
 
 
 
@@ -184,13 +222,13 @@ dag2 = DAG(
 )
 
 
-download_file = PythonOperator(
-    task_id="csv_download",
-    python_callable=download_csv,
+pinecone = PythonOperator(
+    task_id="database",
+    python_callable=update_db,
     op_args=["output.csv"],
     dag=dag2,
 )
 
-download_file
+pinecone
 
 
