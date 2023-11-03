@@ -28,7 +28,8 @@ def setup_database():
                     id SERIAL PRIMARY KEY,
                     username VARCHAR(255) UNIQUE NOT NULL,
                     email VARCHAR(255) UNIQUE NOT NULL,
-                    password VARCHAR(255) NOT NULL
+                    password VARCHAR(255) NOT NULL,
+                    logs VARCHAR(255) DEFAULT NULL
                 );
             """)
             conn.commit()
@@ -43,13 +44,13 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 def get_password_hash(password):
     return pwd_context.hash(password)
 
-def add_user(username, email, password):
+def add_user(username, email, password, path):
     hashed_password = get_password_hash(password)  # Hash the password
     conn = get_connection()
     if conn:
         cur = conn.cursor()
         try:
-            cur.execute("INSERT INTO users (username, email, password) VALUES (%s, %s, %s);", (username, email, hashed_password))
+            cur.execute("INSERT INTO users (username, email, password, logs) VALUES (%s, %s, %s, %s);", (username, email, hashed_password, path))
             conn.commit()
         except psycopg2.Error as e:
             print("Failed to add user.")

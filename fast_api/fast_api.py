@@ -6,7 +6,18 @@ from typing import Optional
 import database as db
 import psycopg2
 import jwt
+import logging  
+import boto3
+import uuid
+import os
 
+# Initialize the logging configuration
+logging.basicConfig(
+    level=logging.INFO,  # Set the desired log level (e.g., INFO, DEBUG)
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+logger = logging.getLogger(__name__)
 
 
 
@@ -14,48 +25,60 @@ class Token(BaseModel):
     access_token: str
     token_type: str
 
+
 from jwt_auth import create_access_token
 from jwt_auth import decode_access_token
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 app = FastAPI(security=oauth2_scheme)
 
-# This utility will provide a way for our routes to get the current user.
-# oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 class User(BaseModel):
     username: str
 
 class UserInDB(User):
     email: str
-    hashed_password: str
+    hashed_password: Optional[str] = None
+    logs: Optional[str] = None
 
 class UserUpdate(BaseModel):
     email: Optional[str] = None
     new_password: Optional[str] = None
 
 
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+def upload_log_to_s3(username, log_message):
+    aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
+    aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+    aws_region = 'us-east-1'
+# boto3.setup_default_session(region_name=aws_region)
+    s3 = boto3.client('s3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key,region_name=aws_region)
 
-def get_password_hash(password):
-    return pwd_context.hash(password)
+    bucket_name = 'big-data-assignment-3'
 
-# Mock database functions
+    # Generate a unique object key for each log entry using UUID
+    object_key = f'logs/{username}/{uuid.uuid4()}.log'
+
+    try:
+        s3.put_object(Bucket=bucket_name, Key=object_key, Body=log_message)
+        return f's3://{bucket_name}/{object_key}'  # Return the S3 object path
+    except Exception as e:
+        logger.error(f"Failed to upload log to S3 for user '{username}': {str(e)}")
+        return None  # Return None to indicate failure
+
+
+
 def get_user(username: str):
     conn = db.get_connection()
     if conn:
         cur = conn.cursor()
         try:
-            cur.execute("SELECT username, email, password FROM users WHERE username=%s;", (username,))
+            cur.execute("SELECT username, email, logs FROM users WHERE username=%s;", (username,))
             user_data = cur.fetchone()
             if user_data:
                 user_dict = {
                     "username": user_data[0],
                     "email": user_data[1],
-                    "hashed_password": user_data[2]
+                    "logs": user_data[2]
                 }
                 return UserInDB(**user_dict)
         except psycopg2.Error as e:
@@ -65,6 +88,8 @@ def get_user(username: str):
             cur.close()
             conn.close()
     return None
+
+
 
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
@@ -88,13 +113,26 @@ credentials_exception = HTTPException(
     headers={"WWW-Authenticate": "Bearer"},
 )
 
-# You'd replace the next line with your actual database call
+
+
+
 @app.post("/register")
 async def register_user(username: str, email: str, password: str):
     if db.user_exists(username):
+        logger.error(f"Registration failed for user '{username}': Username already exists")
         return {"error": "Username already exists"}
-    db.add_user(username, email, password)
-    return {"status": "User registered successfully"}
+    
+    registration_log_message = f"User '{username}' registered successfully."
+    
+    s3_object_path = upload_log_to_s3(username, registration_log_message)
+    if s3_object_path:
+        # If upload is successful, store the S3 object path in the database
+        db.add_user(username, email, password, s3_object_path)
+        return {"status": "User registered successfully"}
+    else:
+        return {"error": "Failed to upload registration log to S3"}
+
+
 
 @app.post("/token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -103,14 +141,28 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     
     if db.check_user(form_data.username, form_data.password):
         access_token = create_access_token(data={"sub": form_data.username})
+        logger.info(f"User '{form_data.username}' logged in successfully.")
         return {"access_token": access_token, "token_type": "bearer"}
     
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password")
+    logger.error(f"Login failed for user '{form_data.username}': Incorrect username or password")
+    raise credentials_exception
+
+
+
+
+async def get_protected_resource(current_user: UserInDB = Depends(get_current_user)):
+    logger.info(f"User '{current_user.username}' accessed protected resource.")
+    return {"message": "This is a protected resource"}
+
+
 
 
 @app.get("/users", response_model=UserInDB)  # Modified this line
 async def read_users_details(current_user: UserInDB = Depends(get_current_user)):  # Renamed for clarity
+    logger.info(f"User '{current_user.username}' requested their details.")
     return current_user
+
+
 
 
 @app.put("/users/update", response_model=User)
@@ -119,11 +171,13 @@ async def update_user_info(user_update: UserUpdate, current_user: User = Depends
     if user_update.email is not None:
         # Update the user's email
         db.update_user_email(current_user.username, user_update.email)
-
+        logger.info(f"User '{current_user.username}' updated their email.")
+    
     if user_update.new_password is not None:
         # Update the user's password
         db.update_user_password(current_user.username, user_update.new_password)
-
+        logger.info(f"User '{current_user.username}' updated their password.")
+    
     # Fetch the updated user information
     updated_user = get_user(current_user.username)
     return updated_user
