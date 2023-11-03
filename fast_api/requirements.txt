@@ -5,3 +5,6 @@ psycopg2
 pyjwt
 passlib
 python-multipart
+uuid
+logging
+boto3
