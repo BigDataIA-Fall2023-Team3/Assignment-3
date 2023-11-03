@@ -100,6 +100,23 @@ def user_exists(username):
             conn.close()
     return False
 
+def email_exists(username):
+    conn = get_connection()
+    if conn:
+        cur = conn.cursor()
+        try:
+            cur.execute("SELECT email FROM users WHERE email=%s;", (username,))
+            user = cur.fetchone()
+            return bool(user)
+        except psycopg2.Error as e:
+            print("Error checking if email exists.")
+            print(e)
+            conn.rollback()
+        finally:
+            cur.close()
+            conn.close()
+    return False
+
 
 def update_user_email(username, email):
     conn = get_connection()

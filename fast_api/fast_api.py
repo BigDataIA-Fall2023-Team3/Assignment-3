@@ -113,14 +113,25 @@ credentials_exception = HTTPException(
     headers={"WWW-Authenticate": "Bearer"},
 )
 
-
+def is_valid_email(email):
+    # Define a regular expression pattern for a valid email format
+    email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+    
+    # Use the re.match() function to check if the email matches the pattern
+    return re.match(email_pattern, email) is not None
 
 
 @app.post("/register")
 async def register_user(username: str, email: str, password: str):
     if db.user_exists(username):
         logger.error(f"Registration failed for user '{username}': Username already exists")
-        return {"error": "Username already exists"}
+        raise HTTPException(status_code=400, detail="User already exists")
+    if db.email_exists(email):
+        logger.error(f"Registration failed for user '{username}': Email already exists")
+        raise HTTPException(status_code=401, detail="Email already exists")
+    if not is_valid_email(email):
+        logger.error(f"Registration failed for user '{username}': Invalid email format")
+        raise HTTPException(status_code=402, detail="Invalid email format")
     
     registration_log_message = f"User '{username}' registered successfully."
     
@@ -173,6 +184,8 @@ async def update_user_info(user_update: UserUpdate, current_user: User = Depends
             raise HTTPException(status_code=400, detail="Email already exists")
         
         # Update the user's email
+        if not is_valid_email(user_update.email):
+            raise HTTPException(status_code=400, detail="Invalid email format")
         db.update_user_email(current_user.username, user_update.email)
         logger.info(f"User '{current_user.username}' updated their email.")
     

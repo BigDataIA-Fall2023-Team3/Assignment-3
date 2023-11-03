@@ -22,5 +22,9 @@ if st.sidebar.button("Signup"):
         st.success("User registered successfully!")
     elif response.status_code == 400:
         st.error("Registration failed. Username or email already exists.")
+    elif response.status_code == 401:
+        st.error("Registration failed. Email already exists.")
+    elif response.status_code == 402:
+        st.error("Registration failed. Invalid email format.")
     else:
         st.error("Registration failed. Please try again later.")
