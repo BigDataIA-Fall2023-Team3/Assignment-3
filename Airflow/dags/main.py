@@ -18,8 +18,10 @@ import tiktoken
 import time
 import pinecone
 import ast
+import pkg_resources
 
-
+pinecone.init(api_key=os.getenv('PINECONE'),environment='gcp-starter')
+index = pinecone.Index('bigdata')
 s3_bucket = 'csv07'
 s3_object_key = 'extract.csv'
 openai.api_key = os.getenv('OPENAI_API')
@@ -150,6 +152,7 @@ def update_db(file):
 def get_df(path):
     df = pd.read_csv(path)
     df['Embeddings'] = df['Embeddings'].apply(ast.literal_eval)
+
     return df.copy()
     
 
@@ -157,15 +160,10 @@ def add_to_pinecone(df):
     # Initialize the Pinecone client
     print("in add to pinecone_______________________-")
     print(os.getenv('PINECONE'))
+    installed_packages = pkg_resources.working_set
+    # for package in installed_packages:
+    #     print(f"{package.key}=={package.version}")
     print(type(os.getenv('PINECONE')))
-    pinecone.init(
-        api_key=os.getenv('PINECONE'),
-        environment='gcp-starter'
-    )
-    
-    index = pinecone.Index('bigdata')
-    
-    
     df = df.rename(columns={df.columns[0]: 'Index'})
     df['Index'] = df['Index'].astype(str)
 
@@ -173,18 +171,14 @@ def add_to_pinecone(df):
     batch_size = 32
     for i in range(0, len(df), batch_size):
         batch_df = df[i:i + batch_size]
-
         id_list = batch_df['Index'].tolist()
         embeds = batch_df['Embeddings'].tolist()
         text_list = batch_df['Text'].tolist()
         metalist = batch_df['Meta Data'].tolist()
         meta = [{'text': text_batch} for text_batch in zip(metalist, text_list)]
-        to_upsert = zip(id_list, embeds, meta)
-        
+        to_upsert = zip(id_list, embeds, meta)  
         index.upsert(vectors=list(to_upsert))
-
-    
-    # pinecone.deinit()
+    pinecone.deinit()
 
 
 
