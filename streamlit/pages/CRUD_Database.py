@@ -12,6 +12,9 @@ import io
 import PyPDF2
 from textblob import TextBlob
 import tiktoken
+import nltk
+
+nltk.download('punkt')
 
 
 
@@ -111,7 +114,7 @@ def get_ids_from_query(index,input_vector):
 
 
 def get_all_ids_from_index(index, num_dimensions, namespace=""):
-  num_vectors = index.describe_index_stats()["namespaces"][namespace]['vector_count']
+  num_vectors = index.describe_index_stats()["namespaces"]['']['vector_count']
   all_ids = set()
   while len(all_ids) < num_vectors:
     input_vector = np.random.rand(num_dimensions).tolist()
