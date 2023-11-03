@@ -15,7 +15,7 @@ import numpy as np
 
 
 try:
-    pinecone.init(api_key='8381828c-e892-4641-8aeb-d886c93e8df6', environment='gcp-starter')
+    pinecone.init(api_key='', environment='gcp-starter')
     index = pinecone.Index('bigdata')
     print("Pinecone initialization and index creation successful.")
 except Exception as e:
@@ -27,8 +27,8 @@ s3_object_key = 'filenames.csv'
 
 
 # Configure AWS credentials
-os.environ['AWS_ACCESS_KEY_ID'] = 'AKIA2FXR2ZAFVLWQQBWB'
-os.environ['AWS_SECRET_ACCESS_KEY'] = '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'
+os.environ['AWS_ACCESS_KEY_ID'] = 
+os.environ['AWS_SECRET_ACCESS_KEY'] = 
 # openai.api_key = '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'
 s3_client = boto3.client('s3')
 
@@ -56,7 +56,7 @@ def options_list():
 
 def gen_embed(chunk_list):
     embed_list = []
-    openai.api_key = "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"
+    openai.api_key = 
     for i in chunk_list:
         text_embedding_response = openai.Embedding.create(
             model=EMBEDDING_MODEL,
@@ -182,9 +182,9 @@ def upload_csv_to_s3(name):
 ######################################################################################################################################
 
 def search_pinecone_and_return_text(query):
-    pinecone.init(api_key='8381828c-e892-4641-8aeb-d886c93e8df6', environment='gcp-starter')
+    pinecone.init(api_key='', environment='gcp-starter')
     index = pinecone.Index('bigdata')
-    openai.api_key = "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"
+    openai.api_key = ""
     xq = openai.Embedding.create(input=query, engine="text-embedding-ada-002")['data'][0]['embedding']
     # st.write(xq)
     res = index.query(xq, top_k=2, include_metadata=True)
@@ -199,7 +199,7 @@ def search_pinecone_and_return_text(query):
 
 
 def filtered_search(query,filename):
-    openai.api_key = "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"
+    openai.api_key = "
     xq = openai.Embedding.create(input=query, engine="text-embedding-ada-002")['data'][0]['embedding']
     res = index.query(
     vector=xq,
