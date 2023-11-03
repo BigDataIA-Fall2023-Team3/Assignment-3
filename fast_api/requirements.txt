@@ -6,5 +6,4 @@ pyjwt
 passlib
 python-multipart
 uuid
-logging
 boto3
