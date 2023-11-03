@@ -1,9 +1,10 @@
 import streamlit as st
 
-import requests
 
+st.title('Welcome to the Chatbot App')
+st.write("This is the home page.")
+st.write("Please sign up or sign in to continue to the chatbot.")
 
-st.title("Welcome to SEC Data Vector Search Platform!")
 st.write("""
     Dive deep into a sophisticated search experience optimized for the vast world of SEC documents. Built with a vision to harness the potential of machine learning and provide users with the most relevant results, this platform offers the following:
 
@@ -17,42 +18,4 @@ st.write("""
 
     Our platform is a blend of robust backend engineering, streamlined front-end experience, and top-tier cloud deployment. Whether you're a researcher, student, or just curious, our platform is designed to cater to your SEC document needs. So, sign up, log in, and start exploring!
     """)
-
-
-
-
-# Define a list of PDF links
-pdf_links_list = [
-    "https://www.sec.gov/files/form1-z.pdf",
-    "https://www.sec.gov/files/form1.pdf",
-    "https://www.sec.gov/files/form1-a.pdf",
-    "https://www.sec.gov/files/form1-e.pdf",
-    "https://www.sec.gov/files/form10.pdf"
-]
-
-# Create a Streamlit dropdown to select a PDF link
-selected_pdf_link = st.selectbox("Select a PDF link", pdf_links_list)
-
-# Create a text input for asking questions
-question = st.text_input("Ask a question")
-
-# Create a button to trigger the chatbot
-if st.button("Ask Chatbot"):
-    # Construct the request payload
-    payload = {
-        "conf": {
-            "pdf_links_list": [selected_pdf_link],
-            "question": question
-        }
-    }
-
-    # Set the Airflow DAG URL
-    # airflow_url = "https://airflow-server-url/airflow/api/v1/dags/csv_generation/dagRuns"
-    airflow_url="http://localhost:8080/dags/pdf_processing_dag/dagRuns"
     
-
-    # Send a POST request to trigger the pipeline
-    response = requests.post(airflow_url, json=payload)
-
-    # Display the response from the pipeline
-    st.write(response.text)

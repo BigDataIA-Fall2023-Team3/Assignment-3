@@ -7,3 +7,5 @@ passlib
 python-multipart
 uuid
 boto3
+pinecone-client
+openai

@@ -1,26 +1,20 @@
 from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import Security
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from passlib.context import CryptContext
 from pydantic import BaseModel
 from typing import Optional
 import database as db
 import psycopg2
-import jwt
-import logging  
-import boto3
-import uuid
-import os
+import openai
+import pinecone
+import requests
 import re
-
-# Initialize the logging configuration
-logging.basicConfig(
-    level=logging.INFO,  # Set the desired log level (e.g., INFO, DEBUG)
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-
-logger = logging.getLogger(__name__)
+import os
 
 
+pinecone.init(api_key=os.environ["PINECONE_API_KEY"], environment='gcp-starter')
+index = pinecone.Index('bigdata')
 
 class Token(BaseModel):
     access_token: str
@@ -36,37 +30,33 @@ app = FastAPI(security=oauth2_scheme)
 
 class User(BaseModel):
     username: str
-
-class UserInDB(User):
     email: str
-    hashed_password: Optional[str] = None
+    password: str
+
+class UserInDB(BaseModel):
+    username: str
+    email: str
     logs: Optional[str] = None
 
-class UserUpdate(BaseModel):
-    email: Optional[str] = None
-    new_password: Optional[str] = None
+class QueryModel(BaseModel):
+    query: str
+    filename: str = None
 
+class Query(BaseModel):
+    query: str
 
-def upload_log_to_s3(username, log_message):
-    aws_access_key_id = os.getenv("AWS_ACCESS_KEY_ID")
-    aws_secret_access_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-    aws_region = 'us-east-1'
-# boto3.setup_default_session(region_name=aws_region)
-    s3 = boto3.client('s3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key,region_name=aws_region)
+class OpenAIModel(BaseModel):
+    api_key: str
 
-    bucket_name = 'big-data-assignment-3'
-
-    # Generate a unique object key for each log entry using UUID
-    object_key = f'logs/{username}/{uuid.uuid4()}.log'
-
-    try:
-        s3.put_object(Bucket=bucket_name, Key=object_key, Body=log_message)
-        return f's3://{bucket_name}/{object_key}'  # Return the S3 object path
-    except Exception as e:
-        logger.error(f"Failed to upload log to S3 for user '{username}': {str(e)}")
-        return None  # Return None to indicate failure
-
-
+def construct_prompt(context,query):
+    prompt = """Use the below content of Eligibility Requirements to answer the subsequent question. If the answer cannot be found in the articles, write "I could not find an answer."""
+    prompt += "\n\n"
+    prompt += "Context: " + context
+    prompt += "\n\n"
+    prompt += "Question: " + query
+    prompt += "\n"
+    prompt += "Answer: "
+    return prompt
 
 def get_user(username: str):
     conn = db.get_connection()
@@ -123,27 +113,16 @@ def is_valid_email(email):
 
 
 @app.post("/register")
-async def register_user(username: str, email: str, password: str):
-    if db.user_exists(username):
-        logger.error(f"Registration failed for user '{username}': Username already exists")
+async def register_user(user: User):
+    if db.user_exists(user.username):
         raise HTTPException(status_code=400, detail="User already exists")
-    if db.email_exists(email):
-        logger.error(f"Registration failed for user '{username}': Email already exists")
+    if db.email_exists(user.email):
         raise HTTPException(status_code=401, detail="Email already exists")
-    if not is_valid_email(email):
-        logger.error(f"Registration failed for user '{username}': Invalid email format")
+    if not is_valid_email(user.email):
         raise HTTPException(status_code=402, detail="Invalid email format")
-    
-    registration_log_message = f"User '{username}' registered successfully."
-    
-    s3_object_path = upload_log_to_s3(username, registration_log_message)
-    if s3_object_path:
-        # If upload is successful, store the S3 object path in the database
-        db.add_user(username, email, password, s3_object_path)
-        return {"status": "User registered successfully"}
-    else:
-        return {"error": "Failed to upload registration log to S3"}
-
+    logs = ""
+    db.add_user(user.username, user.email, user.password, logs)
+    return {"message": "User created successfully"}
 
 
 @app.post("/token", response_model=Token)
@@ -152,49 +131,71 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     print(f"Stored Password: {stored_password}")
     
     if db.check_user(form_data.username, form_data.password):
-        access_token = create_access_token(data={"sub": form_data.username})
-        logger.info(f"User '{form_data.username}' logged in successfully.")
+        access_token = create_access_token(data={"sub": form_data.username}, expires_delta=None)
         return {"access_token": access_token, "token_type": "bearer"}
-    
-    logger.error(f"Login failed for user '{form_data.username}': Incorrect username or password")
     raise credentials_exception
 
-
-
-
 async def get_protected_resource(current_user: UserInDB = Depends(get_current_user)):
-    logger.info(f"User '{current_user.username}' accessed protected resource.")
     return {"message": "This is a protected resource"}
-
-
 
 
 @app.get("/users", response_model=UserInDB)  # Modified this line
 async def read_users_details(current_user: UserInDB = Depends(get_current_user)):  # Renamed for clarity
-    logger.info(f"User '{current_user.username}' requested their details.")
     return current_user
 
 
-
-
-@app.put("/users/update", response_model=User)
-async def update_user_info(user_update: UserUpdate, current_user: User = Depends(get_current_user)):
-    # You can update user information here based on the data in user_update
-    if user_update.email is not None:
-        if db.email_exists(user_update.email):
-            raise HTTPException(status_code=400, detail="Email already exists")
-        
-        # Update the user's email
-        if not is_valid_email(user_update.email):
-            raise HTTPException(status_code=400, detail="Invalid email format")
-        db.update_user_email(current_user.username, user_update.email)
-        logger.info(f"User '{current_user.username}' updated their email.")
+@app.post("/search/")
+async def search(query_model: Query, openai_model: OpenAIModel, current_user: UserInDB = Security(get_current_user)):
     
-    if user_update.new_password is not None:
-        # Update the user's password
-        db.update_user_password(current_user.username, user_update.new_password)
-        logger.info(f"User '{current_user.username}' updated their password.")
+    openai.api_key = openai_model.api_key
     
-    # Fetch the updated user information
-    updated_user = get_user(current_user.username)
-    return updated_user
+    # Get the query embedding
+    xq = openai.Embedding.create(input=query_model.query, engine="text-embedding-ada-002")['data'][0]['embedding']
+    # st.write(xq)
+    res = index.query(xq, top_k=2, include_metadata=True)
+    results = []
+    for match in res['matches']:
+        metadata = match.get('metadata', {})  # Use .get() to handle missing 'metadata'
+        text = metadata.get('text', '')  # Use .get() to handle missing 'text'
+        results.append(text)
+    
+    return results
+
+@app.post("/answer/")
+async def answer_question(query_model: QueryModel, openai_model: OpenAIModel, current_user: UserInDB = Security(get_current_user)):
+    openai.api_key =openai_model.api_key
+    # Perform a filtered search if a filename is provided
+    if query_model.filename and query_model.filename.lower() != 'all':
+        # Create an embedding of the query
+        xq = openai.Embedding.create(input=query_model.query, engine="text-embedding-ada-002")['data'][0]['embedding']
+        # Filter the search by the given filename
+        res = index.query(
+            vector=xq,
+            filter={"Filename": {"$eq": query_model.filename}},
+            top_k=2,
+            include_metadata=True
+        )
+    else:
+        # If 'All' or no filename is provided, perform a regular search
+        xq = openai.Embedding.create(input=query_model.query, engine="text-embedding-ada-002")['data'][0]['embedding']
+        res = index.query(xq, top_k=2, include_metadata=True)
+
+    # Extract the text from search results
+    results = [match.get('metadata', {}).get('text', '') for match in res['matches']]
+    
+    # Use the first search result as context for generating the answer
+    context = results[0] if results else ""
+
+    # Build the prompt with the search results and the user's question
+    prompt = construct_prompt(context, query_model.query)
+    
+    # Generate the answer with OpenAI API using the prompt
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+    return response
+
