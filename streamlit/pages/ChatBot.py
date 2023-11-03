@@ -8,13 +8,12 @@ import pandas as pd
 import time
 import numpy as np
 import os
-import dotenv
-dotenv.load_dotenv()
 
 
 
 
-API_ENDPOINT = os.environ['FASTAPI_ENDPOINT']
+
+API_ENDPOINT = st.secrets['FASTAPI_ENDPOINT']
 logging.basicConfig(filename='errors.log', level=logging.ERROR)
 logging.basicConfig(filename='info.log', level=logging.INFO)
 #########################################################################################
@@ -22,7 +21,7 @@ logging.basicConfig(filename='info.log', level=logging.INFO)
 #Function to get options list
 def options_list():
     # Read the file names from a CSV file
-    filename_df = pd.read_csv(os.environ['FILENAME'], header=None)  # No header specified
+    filename_df = pd.read_csv(st.secrets['FILENAME'], header=None)  # No header specified
     # Extract the options as a list
     options = filename_df[0].tolist()[1:] 
     options =  [i.strip() for i in options]

@@ -7,9 +7,6 @@ import time
 import pinecone
 import boto3
 import numpy as np
-import os
-import dotenv
-dotenv.load_dotenv()
 import openai
 import io
 import PyPDF2
@@ -20,7 +17,7 @@ import tiktoken
 
 #Conecting to Pine cone database
 try:
-    pinecone.init(api_key=os.environ['PINECONE_API_KEY'], environment=os.environ['PINECONE_ENV'])
+    pinecone.init(api_key=st.secrets['PINECONE_API_KEY'], environment=st.secrets['PINECONE_ENV'])
     index = pinecone.Index('bigdata')
     print("Pinecone initialization and index creation successful.")
 except Exception as e:
@@ -30,10 +27,10 @@ except Exception as e:
 #Connecting to S3 bucket
 s3_bucket = 'csv07'
 s3_object_key = 'filenames.csv'
-aws_access_key_id = os.environ['AWS_ACCESS_KEY_ID']
-aws_secret_access_key = os.environ['AWS_SECRET_ACCESS_KEY']
-aws_region = os.environ['AWS_REGION']
-API_ENDPOINT = os.environ['FASTAPI_ENDPOINT']
+aws_access_key_id = st.secrets['AWS_ACCESS_KEY_ID']
+aws_secret_access_key = st.secrets['AWS_SECRET_ACCESS_KEY']
+aws_region = st.secrets['AWS_REGION']
+API_ENDPOINT = st.secrets['FASTAPI_ENDPOINT']
 s3_client = boto3.client('s3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key,region_name=aws_region)
 EMBEDDING_MODEL = "text-embedding-ada-002"
 GPT_MODEL = "gpt-3.5-turbo"
@@ -90,14 +87,14 @@ def create_chunk_list(sentence_list):
     return chunk_list
 
 
-def extract_pdf_content(link):
+def extract_pdf_content(link, api_key):
     filename = link.split('/')[-1]
     pdf_response = requests.get(link)
     pdf_content = pdf_response.content
     meta_data, pdf_text = extract_text_with_pypdf2(pdf_content)
     sentences_list = extract_sentences(pdf_text.strip())
     chunk_list = create_chunk_list(sentences_list)
-    embeddings_list = gen_embed(chunk_list, os.environ['OPENAI_API_KEY'])
+    embeddings_list = gen_embed(chunk_list, api_key)
     df_temp = pd.DataFrame({'Filename':filename,'Metadata': meta_data,'Text': chunk_list, 'Embeddings':embeddings_list})
     
     # st.write(df_temp.head(10))
@@ -148,7 +145,7 @@ def add_to_pinecone(df):
 
 
 def upload_csv_to_s3(name):
-    file_path = os.environ["FILENAME"]  # Replace with the path to your existing CSV file
+    file_path = st.secrets["FILENAME"]  # Replace with the path to your existing CSV file
     df = pd.read_csv(file_path)
 
     # Create a new DataFrame with the additional file name
@@ -161,7 +158,7 @@ def upload_csv_to_s3(name):
     # Write the combined DataFrame back to the CSV file
     combined_df.to_csv(file_path, index=False)
      # Upload the CSV file, replacing it if it already exists.
-    s3_client.upload_file(os.environ['FILENAME'], 'csv07', "filenames.csv")
+    s3_client.upload_file(st.secrets['FILENAME'], 'csv07', "filenames.csv")
 
 
 #########################################################################################
@@ -170,6 +167,7 @@ st.title('Upload a PDF file to the Big Data Index')
 st.title("QA Chatbot")
 # Create a textbox for user input
 link = st.text_input("Enter pdf link")
+api_key = st.text_input("Enter api key")
 
 # Create an update button
 update_button = st.button("Update database")
@@ -181,7 +179,7 @@ if update_button:
         st.warning("Please enter pdf link")
     else:
         filename = link.split('/')[-1]
-        df = extract_pdf_content(link)
+        df = extract_pdf_content(link, api_key)
         add_to_pinecone(df)
         upload_csv_to_s3(filename)
         st.success("Updated") 
