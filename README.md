@@ -6,7 +6,7 @@
 
 #### [Heroku](https://assignment-3-b24bd7fda897.herokuapp.com/docs)
 
-#### [codelabs](https://codelabs-preview.appspot.com/?file_id=1k9h6G5z1DkXoStdQyCTC3ZMsNPTBl2wp-AFMHDoi1es)
+#### [codelabs](https://codelabs-preview.appspot.com/?file_id=16mdL8dZQ83-4-dlF7DsDiW4hhAcy46rbm-nsTOuCowg)
 
 ## Open AI Interactive Chat Bot
 
