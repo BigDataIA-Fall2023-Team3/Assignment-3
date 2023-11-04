@@ -45,7 +45,7 @@ This project, "Automating Metadata Extraction and Document Retrieval System," is
 
 1. Airflow is utilized to create 2 Pipelines
 - One for Data Acquisition and Embeddings generation
-- Another for Insertion of Embeddings and chunks in Pinevector Database
+- Another for Insertion of Embeddings and chunks in Pinecone Database
 2. Utilizing Open AI A chat bot is modelled to query the data in database
 3. User registration and authentication is done through fast api
 4. The User Interface is provided through streamlit
