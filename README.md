@@ -58,6 +58,6 @@ AND ABIDE BY THE POLICIES LISTED IN THE STUDENT HANDBOOK
  ### Contributions: 
 
 - Sumanayana Konda: 25% (Streamlit , Heroku, Fast API, GCP)
-- Akshatha Patil: 25% (Airflow, Pipeline 1)
-- Ruthwik Bommenahalli Gowda: 45% (Airflow, Embeddings, Open AI API, Pinecone Vector Database, AWS)
+- Akshatha Patil: 25% (Airflow, Docker)
+- Ruthwik Bommenahalli Gowda: 45% (Airflow (Pipeline 1, Pipeline 2, Embeddings, Open AI API, Pinecone Vector Database, AWS)
 - Pavan Madhav Manikantha Sai Nainala: 5% (Documentation)
