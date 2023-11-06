@@ -130,7 +130,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     print(f"Stored Password: {stored_password}")
     
     if db.check_user(form_data.username, form_data.password):
-        access_token = create_access_token(data={"sub": form_data.username})
+        access_token = create_access_token(data={"sub": form_data.username}, expires_delta=None)
         return {"access_token": access_token, "token_type": "bearer"}
     raise credentials_exception
 
