@@ -11,11 +11,11 @@ import io
 import pinecone
 import boto3
 import numpy as np
-
-
+import dotenv
+dotenv.load_dotenv()
 
 try:
-    pinecone.init(api_key='', environment='gcp-starter')
+    pinecone.init(api_key='8381828c-e892-4641-8aeb-d886c93e8df6', environment='gcp-starter')
     index = pinecone.Index('bigdata')
     print("Pinecone initialization and index creation successful.")
 except Exception as e:
@@ -24,13 +24,15 @@ except Exception as e:
 s3_bucket = 'csv07'
 s3_object_key = 'filenames.csv'
 
+aws_access_key_id = os.environ['AWS_ACCESS_KEY_ID']
+aws_secret_access_key = os.environ['AWS_SECRET_ACCESS_KEY']
+aws_region = 'us-east-1'
 
-
-# Configure AWS credentials
-os.environ['AWS_ACCESS_KEY_ID'] = 
-os.environ['AWS_SECRET_ACCESS_KEY'] = 
+# # Configure AWS credentials
+# os.environ['AWS_ACCESS_KEY_ID'] = 'AKIA2FXR2ZAFVLWQQBWB'
+# os.environ['AWS_SECRET_ACCESS_KEY'] = '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'
 # openai.api_key = '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'
-s3_client = boto3.client('s3')
+s3_client = boto3.client('s3', aws_access_key_id=aws_access_key_id, aws_secret_access_key=aws_secret_access_key,region_name=aws_region)
 
 local_csv_file_path = "./extract.csv"
 s3_client.download_file(s3_bucket, s3_object_key, local_csv_file_path)
@@ -56,7 +58,7 @@ def options_list():
 
 def gen_embed(chunk_list):
     embed_list = []
-    openai.api_key = 
+    openai.api_key = ""
     for i in chunk_list:
         text_embedding_response = openai.Embedding.create(
             model=EMBEDDING_MODEL,
@@ -181,66 +183,66 @@ def upload_csv_to_s3(name):
 
 ######################################################################################################################################
 
-def search_pinecone_and_return_text(query):
-    pinecone.init(api_key='', environment='gcp-starter')
-    index = pinecone.Index('bigdata')
-    openai.api_key = ""
-    xq = openai.Embedding.create(input=query, engine="text-embedding-ada-002")['data'][0]['embedding']
-    # st.write(xq)
-    res = index.query(xq, top_k=2, include_metadata=True)
-    st.write(res)
-    results = []
-    for match in res['matches']:
-        metadata = match.get('metadata', {})  # Use .get() to handle missing 'metadata'
-        text = metadata.get('text', '')  # Use .get() to handle missing 'text'
-        results.append(text)
+# def search_pinecone_and_return_text(query, openai_api_key):
+#     pinecone.init(api_key='8381828c-e892-4641-8aeb-d886c93e8df6', environment='gcp-starter')
+#     index = pinecone.Index('bigdata')
+#     openai.api_key = openai_api_key
+#     xq = openai.Embedding.create(input=query, engine="text-embedding-ada-002")['data'][0]['embedding']
+#     # st.write(xq)
+#     res = index.query(xq, top_k=2, include_metadata=True)
+#     st.write(res)
+#     results = []
+#     for match in res['matches']:
+#         metadata = match.get('metadata', {})  # Use .get() to handle missing 'metadata'
+#         text = metadata.get('text', '')  # Use .get() to handle missing 'text'
+#         results.append(text)
     
-    return results
+#     return results
 
 
-def filtered_search(query,filename):
-    openai.api_key = "
-    xq = openai.Embedding.create(input=query, engine="text-embedding-ada-002")['data'][0]['embedding']
-    res = index.query(
-    vector=xq,
-    filter={
-        "Filename": {"$eq": filename}
-    },
-    top_k=2,
-    include_metadata=True
-    )
-    results = []
-    print()
-    for match in res['matches']:
-        metadata = match.get('metadata', {})  # Use .get() to handle missing 'metadata'
-        text = metadata.get('text', '')  # Use .get() to handle missing 'text'
-        results.append(text)
-    return results
+# def filtered_search(query,filename, openai_api_key):
+#     openai.api_key = openai_api_key
+#     xq = openai.Embedding.create(input=query, engine="text-embedding-ada-002")['data'][0]['embedding']
+#     res = index.query(
+#     vector=xq,
+#     filter={
+#         "Filename": {"$eq": filename}
+#     },
+#     top_k=2,
+#     include_metadata=True
+#     )
+#     results = []
+#     print()
+#     for match in res['matches']:
+#         metadata = match.get('metadata', {})  # Use .get() to handle missing 'metadata'
+#         text = metadata.get('text', '')  # Use .get() to handle missing 'text'
+#         results.append(text)
+#     return results
 
-def construct_prompt(context,query):
-    prompt = """Answer the question as truthfully as possible using the context below, and if the answer is no within the context, say 'I don't know.'"""
-    prompt += "\n\n"
-    prompt += "Context: " + context
-    prompt += "\n\n"
-    prompt += "Question: " + query
-    prompt += "\n"
-    prompt += "Answer: "
-    return prompt
+# def construct_prompt(context,query):
+#     prompt = """Answer the question as truthfully as possible using the context below, and if the answer is no within the context, say 'I don't know.'"""
+#     prompt += "\n\n"
+#     prompt += "Context: " + context
+#     prompt += "\n\n"
+#     prompt += "Question: " + query
+#     prompt += "\n"
+#     prompt += "Answer: "
+#     return prompt
 
 
-def answer_question(results, query):
-    st.write(results)
-    # Build the prompt with the search results and the user's question
-    prompt = construct_prompt(results,query)
+# def answer_question(results, query):
+#     st.write(results)
+#     # Build the prompt with the search results and the user's question
+#     prompt = construct_prompt(results,query)
 
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": prompt}
-        ]
-    )
-    return response
+#     response = openai.ChatCompletion.create(
+#         model="gpt-3.5-turbo",
+#         messages=[
+#             {"role": "system", "content": "You are a helpful assistant."},
+#             {"role": "user", "content": prompt}
+#         ]
+#     )
+#     return response
     
 
 
@@ -273,6 +275,7 @@ if update_button:
 options = options_list()
 selected_option = st.selectbox("Select a file name:", options)
 
+api_key = st.text_input("Enter openai api key")
 # Create another textbox for user input
 question = st.text_input("Enter question")
 
@@ -281,19 +284,23 @@ submit_button = st.button("Submit")
 
 # Check if the submit button is clicked
 if submit_button:
-    if not question:
-        st.warning("Please enter question")
-    else:
-        if selected_option=='All':
-            st.write(question)
-            res = search_pinecone_and_return_text(question)
-            context = res[0]
-            # a = answer_question(context,question)
-            st.write(context)
+    try:
+        if not question or not api_key:
+            st.warning("Please enter question and openai api key")
         else:
-            res = filtered_search(question,selected_option)
-            context = res[0]
-            # a =answer_question(context,question)
-            st.write(context)
+            if selected_option=='All':
+                st.write(question)
+                res = search_pinecone_and_return_text(question, str(api_key))
+                context = res[0]
+                # a = answer_question(context,question)
+                st.write(context)
+            else:
+                res = filtered_search(question,selected_option, str(api_key))
+                context = res[0]
+                # a =answer_question(context,question)
+                st.write(context)
+    except Exception as e:
+        st.error("Error occurred: {}".format(e))
+
             
         
