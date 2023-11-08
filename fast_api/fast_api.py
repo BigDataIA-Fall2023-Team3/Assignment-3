@@ -10,9 +10,9 @@ import openai
 import pinecone
 import requests
 import re
+import logging
 
-
-pinecone.init(api_key='8381828c-e892-4641-8aeb-d886c93e8df6', environment='gcp-starter')
+pinecone.init(api_key='', environment='gcp-starter')
 index = pinecone.Index('bigdata')
 
 class Token(BaseModel):
@@ -93,6 +93,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
         raise credentials_exception
 
     user = get_user(username)
+    print(user)
     if user is None:
         raise credentials_exception
     return user
@@ -126,9 +127,10 @@ async def register_user(user: User):
 
 @app.post("/token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    # print(form_data)
+    logging.info(str(form_data))
     stored_password = db.get_password_hash(form_data.password)  # Get hashed password from database
     print(f"Stored Password: {stored_password}")
-    
     if db.check_user(form_data.username, form_data.password):
         access_token = create_access_token(data={"sub": form_data.username}, expires_delta=None)
         return {"access_token": access_token, "token_type": "bearer"}

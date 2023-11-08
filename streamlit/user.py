@@ -58,9 +58,9 @@ def options_list():
 
 def gen_embed(chunk_list):
     embed_list = []
-    openai.api_key = ""
+    openai.api_key = os.getenv('OPENAI_API')  # Make sure you have your API key set in environment variables
     for i in chunk_list:
-        text_embedding_response = openai.Embedding.create(
+        text_embedding_response = openai.Embedding.create(  # This line might need to be changed to openai.Embeddings.encode or similar
             model=EMBEDDING_MODEL,
             input=i,
         )

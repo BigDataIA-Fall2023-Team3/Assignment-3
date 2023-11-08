@@ -1,12 +1,14 @@
 import jwt 
 from datetime import datetime, timedelta
 import os
+import logging
 
 SECRET_KEY =  os.urandom(32).hex()
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 def create_access_token(data: dict, expires_delta: timedelta = None):
+    logging.info("loggo")
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
