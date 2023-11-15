@@ -10,12 +10,58 @@ import numpy as np
 import os
 
 
+import psycopg2
 
+RDS_HOST = st.secrets['RDS_HOST']
+RDS_PORT = st.secrets['RDS_PORT']
+RDS_DB_NAME = st.secrets['RDS_DB_NAME']
+RDS_USER = st.secrets['RDS_USER']
+RDS_PASSWORD = st.secrets['RDS_PASSWORD']
+DATABASE_URL = f"dbname='{RDS_DB_NAME}' user='{RDS_USER}' host='{RDS_HOST}' port={RDS_PORT} password='{RDS_PASSWORD}'"
+# psql --host=assignment-3.cg4vo6ofeasg.us-east-1.rds.amazonaws.com --port=5432 --username=postgres --password --dbname=a3 
 
+def get_connection():
+    try:
+        conn = psycopg2.connect(DATABASE_URL)
+        return conn
+    except psycopg2.Error as e:
+        print("Unable to connect to the database")
+        print(e)
+        return None
+    
+# Function to update user logs in the database
+import os
 
+# Function to update user logs in the database
+def update_user_logs(username, logs):
+    conn = get_connection()
+    if conn is not None:
+        try:
+            cursor = conn.cursor()
+            # Check if the user already exists in the table
+            cursor.execute("SELECT * FROM logs WHERE username = %s", (username,))
+            user_exists = cursor.fetchone()
+
+            if user_exists:
+                # Update the existing user's logs
+                cursor.execute("UPDATE logs SET logs = %s WHERE username = %s", (logs, username))
+            else:
+                # Insert a new row for the user
+                cursor.execute("INSERT INTO logs (username, logs) VALUES (%s, %s)", (username, logs))
+
+            conn.commit()
+            cursor.close()
+        except psycopg2.Error as e:
+            print("Error updating user logs:", e)
+        finally:
+            conn.close()
+
+#########################################################################################
 API_ENDPOINT = st.secrets['FASTAPI_ENDPOINT']
-logging.basicConfig(filename='errors.log', level=logging.ERROR)
-logging.basicConfig(filename='info.log', level=logging.INFO)
+log_file_path = '/Users/sumanayanakonda/Desktop/Assignment-3/Streamlit/info.log'
+if not os.path.exists(log_file_path):
+    open(log_file_path, 'w').close()
+logging.basicConfig(filename=log_file_path, level=logging.INFO)
 #########################################################################################
 
 #Function to get options list
@@ -31,6 +77,7 @@ def options_list():
 
 #Function to get token
 def get_token(username, password):
+    logging.info("Fetching token")
     payload = {
         'username': username,
         'password': password
@@ -41,17 +88,19 @@ def get_token(username, password):
     }
 
     try:
+        logging.info("Sending request")
         response = requests.post(f"{API_ENDPOINT}/token", data=payload, headers=headers)
         if response.status_code == 200:
             token_data = response.json()
             st.success('Token retrieved successfully!')
+            logging.info("Token retrieved successfully!")
             return token_data.get('access_token')
         else:
             st.error(f"Failed to retrieve token: {response.json().get('detail', 'No detail provided by server.')}")
-            logging.error(f"Failed to retrieve token: {response.json().get('detail', 'No detail provided by server.')}")
+            logging.info(f"Failed to retrieve token: {response.json().get('detail', 'No detail provided by server.')}")
     except requests.RequestException as e:
         st.error(f"An error occurred while retrieving token: {e}")
-        logging.error(f"An error occurred while retrieving token: {e}")
+        logging.info(f"An error occurred while retrieving token: {e}")
 
     return None
 
@@ -66,6 +115,7 @@ def get_user_details(token, retries=1):
     }
     for attempt in range(retries + 1):
         try:
+            logging.info("Sending request")
             response = requests.get(f"{API_ENDPOINT}/users", headers=headers)
             response.raise_for_status()
             return response.json()
@@ -78,13 +128,13 @@ def get_user_details(token, retries=1):
                     continue
                 else:
                     # Log the final unauthorized error
-                    logging.error(f"401 Unauthorized: {response.json().get('detail', 'No detail provided by server.')}")
+                    logging.info(f"401 Unauthorized: {response.json().get('detail', 'No detail provided by server.')}")
             else:
                 # Log other HTTP errors
-                logging.error(f"HTTP error occurred: {http_err}: {response.json().get('detail', 'No detail provided by server.')}")
+                logging.info(f"HTTP error occurred: {http_err}: {response.json().get('detail', 'No detail provided by server.')}")
         except Exception as e:
             # Log unexpected errors
-            logging.error(f"An unexpected error occurred: {e}")
+            logging.info(f"An unexpected error occurred: {e}")
         # Wait a bit before retrying (if needed)
         if attempt < retries:
             time.sleep(1)
@@ -107,8 +157,10 @@ def handle_new_message(question, file, api_key, token):
         }
     }
     try:
+        logging.info("Sending request")
         response = requests.post(f"{API_ENDPOINT}/answer/", headers=headers, json=data)
         response.raise_for_status()
+        logging.info("Response received")
         return response.json()
     except requests.HTTPError as http_err:
         print(f"HTTP error occurred: {http_err} - Response Body: {http_err.response.text}")
@@ -119,7 +171,7 @@ def handle_new_message(question, file, api_key, token):
 
 #Function to display chat history
 def display_chat(history):
-    """Function to display the chat history."""
+    logging.info("Displaying chat history")
     for idx, chat in enumerate(history):
         unique_id = str(uuid.uuid4()) 
         st.text_area(f"Q: {chat['question']}", value=chat['answer'], height=75, key=unique_id)
@@ -127,10 +179,12 @@ def display_chat(history):
 
 # Initialize session state for chat history
 if 'chat_history' not in st.session_state:
+    logging.info("Initializing chat history")
     st.session_state.chat_history = []
 
 # Sidebar for user authentication
 if 'access_token' not in st.session_state:
+    logging.info("Displaying sign in form")
     with st.sidebar:
         st.subheader("Sign In")
         username = st.text_input("Username")
@@ -149,12 +203,13 @@ st.title('Chatbot')
 
 # Main page logic
 if 'access_token' in st.session_state:
+    logging.info("Displaying chat form")
     # Retrieve and display user details
     user_details = get_user_details(st.session_state.access_token, retries=1)
     if user_details:
         st.subheader(f"Welcome {user_details['username']}!")
         st.text(f"Email: {user_details['email']}")
-        st.text(f"Logs: {user_details.get('logs', 'No logs available.')}")
+        logging.info("User details displayed")
     
     # Input for new questions
     with st.form("chat_form"):
@@ -163,18 +218,28 @@ if 'access_token' in st.session_state:
         file = st.selectbox("Select a file name:", options)
         openai_key = st.text_input('OpenAI Key', type="password")
         submit_button = st.form_submit_button(label='Submit')
+        logging.info("Question submitted")
     
     if submit_button and question and file and openai_key:
+        logging.info("Handling new message")
         print(st.session_state.access_token, "fectct")
         answer_data = handle_new_message(question, file, openai_key, st.session_state.access_token)
         print(answer_data)
         if answer_data:
+            logging.info("Answer received")
             st.session_state.chat_history.append({
                 'question': question,
                 'answer': answer_data.get('choices', 'No answer returned')[0]['message']['content']
             })
+            update_user_logs(user_details['username'], st.session_state.chat_history)
             display_chat(st.session_state.chat_history)
+    else:
+        update_user_logs(user_details['username'], st.session_state.chat_history)
+        st.warning('Please enter ALL details to get an answer.')
+        logging.info("No question submitted")
+        display_chat(st.session_state.chat_history)
 else:
     st.warning('Please sign in to use the chatbot.')
+    logging.info("User not signed in")
 
 

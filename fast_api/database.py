@@ -1,11 +1,13 @@
 import psycopg2
 from passlib.context import CryptContext
+import os
 
-RDS_HOST = "assignment-3.cg4vo6ofeasg.us-east-1.rds.amazonaws.com"
-RDS_PORT = 5432
-RDS_DB_NAME = "a3"
-RDS_USER = "postgres"
-RDS_PASSWORD = "Sanju1209"
+
+RDS_HOST = os.environ.get('RDS_HOST')
+RDS_PORT = os.environ.get('RDS_PORT')
+RDS_DB_NAME = os.environ.get('RDS_DB_NAME')
+RDS_USER = os.environ.get('RDS_USER')
+RDS_PASSWORD = os.environ.get('RDS_PASSWORD')
 DATABASE_URL = f"dbname='{RDS_DB_NAME}' user='{RDS_USER}' host='{RDS_HOST}' port={RDS_PORT} password='{RDS_PASSWORD}'"
 # psql --host=assignment-3.cg4vo6ofeasg.us-east-1.rds.amazonaws.com --port=5432 --username=postgres --password --dbname=a3 
 
