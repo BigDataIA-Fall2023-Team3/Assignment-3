@@ -4,7 +4,7 @@
 
 #### [streamlit app](https://assignment-3.streamlit.app/)
 
-#### [Heroku](https://assignment-3-b24bd7fda897.herokuapp.com/docs)
+#### [Heroku](https://assignment-3-ec7a8fd53eb5.herokuapp.com/docs)
 
 #### [codelabs](https://codelabs-preview.appspot.com/?file_id=1k9h6G5z1DkXoStdQyCTC3ZMsNPTBl2wp-AFMHDoi1es)
 
