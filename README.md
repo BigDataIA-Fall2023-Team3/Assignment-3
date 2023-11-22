@@ -57,7 +57,7 @@ AND ABIDE BY THE POLICIES LISTED IN THE STUDENT HANDBOOK
 
  ### Contributions: 
 
-- Sumanayana Konda: 31.3%
-- Akshatha Patil: 33.3%
-- Ruthwik Bommenahalli Gowda: 33.3%
-- Pavan Madhav Manikantha Sai Nainala: 2%
+- Sumanayana Konda: 25%
+- Akshatha Patil: 25%
+- Ruthwik Bommenahalli Gowda: 25%
+- Pavan Madhav Manikantha Sai Nainala: 25%
