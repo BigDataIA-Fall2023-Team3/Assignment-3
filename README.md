@@ -1,4 +1,4 @@
-# Open AI Interactive Chat Bot
+# PDF Data Wizard
 
 #### [codelabs](https://codelabs-preview.appspot.com/?file_id=16mdL8dZQ83-4-dlF7DsDiW4hhAcy46rbm-nsTOuCowg#0)
 
