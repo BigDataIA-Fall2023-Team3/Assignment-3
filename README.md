@@ -1,18 +1,9 @@
-## Assignment-3
-
-# Automating Metadata Extraction and Document Retrieval System
-
-#### [streamlit app](https://assignment-3.streamlit.app/)
-
-#### [Heroku](https://assignment-3-ec7a8fd53eb5.herokuapp.com/docs)
+# Open AI Interactive Chat Bot
 
 #### [codelabs](https://codelabs-preview.appspot.com/?file_id=16mdL8dZQ83-4-dlF7DsDiW4hhAcy46rbm-nsTOuCowg#0)
 
-#### [Airflow](http://35.231.215.225:8080/home)
-
 #### [Demo](https://youtu.be/gnB77xYr11E)
 
-## Open AI Interactive Chat Bot
 
 ### Project Description:
 
